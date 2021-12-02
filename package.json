@@ -1,8 +1,7 @@
 {
   "name": "semantic-release",
   "description": "Automated semver compliant package publishing",
-  "version": "0.0.0-development",
-  "type": "module",
+  "version": "19.0.5",
   "author": "Stephan Bönnemann <stephan@boennemann.me> (http://boennemann.me)",
   "ava": {
     "files": [
@@ -18,7 +17,7 @@
     "semantic-release": "bin/semantic-release.js"
   },
   "bugs": {
-    "url": "https://github.com/semantic-release/semantic-release/issues"
+    "url": "https://github.com/Xunnamius/semantic-release-atam/issues"
   },
   "contributors": [
     "Gregor Martynus (https://twitter.com/gr2m)",
@@ -60,10 +59,11 @@
     "c8": "7.14.0",
     "clear-module": "4.1.2",
     "codecov": "3.8.3",
-    "dockerode": "3.3.5",
-    "file-url": "4.0.0",
-    "fs-extra": "11.1.1",
-    "got": "12.6.0",
+    "delay": "5.0.0",
+    "dockerode": "3.3.1",
+    "file-url": "3.0.0",
+    "fs-extra": "9.1.0",
+    "got": "11.8.3",
     "js-yaml": "4.1.0",
     "mockserver-client": "5.15.0",
     "nock": "13.3.1",
@@ -84,7 +84,7 @@
     "index.js",
     "cli.js"
   ],
-  "homepage": "https://github.com/semantic-release/semantic-release#readme",
+  "homepage": "https://github.com/Xunnamius/semantic-release-atam#readme",
   "keywords": [
     "author",
     "automation",
@@ -121,7 +121,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/semantic-release/semantic-release.git"
+    "url": "git+https://github.com/Xunnamius/semantic-release-atam.git"
   },
   "scripts": {
     "codecov": "codecov -f coverage/coverage-final.json",
