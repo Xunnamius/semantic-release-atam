@@ -1,0 +1,155 @@
+name: upstream-sync
+
+on:
+  workflow_dispatch: # * Treated like a scheduled run
+  schedule:
+    - cron: '0 10 */1 * *'
+
+env:
+  # * Selectively enable debugger verbose output in the pipeline
+  # ? See also: https://www.npmjs.com/package/debug#wildcards
+  #DEBUG: 'upstream-sync:*'
+  NODE_CURRENT_VERSION: 16.x
+  # ! If changed, this must also be updated in api.ergodark.com's database if
+  # ! using xunn.at npm install links
+  TAG_VERSION_PREFIX: atam@
+  UPSTREAM_OWNER: 'semantic-release'
+  UPSTREAM_REPO: 'semantic-release'
+
+jobs:
+  synchronize:
+    name: 'synchronize'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Report mode statuses
+        run: |
+          if [ -n "$DEBUG" ]; then
+            echo "UPSTREAM-SYNC IS RUNNING IN DEBUG MODE ($DEBUG)"
+          else
+            echo '(upstream-sync is not running in debug mode)'
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v2.4.0
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+          fetch-depth: 0
+
+      - name: Import gpg key
+        id: gpg
+        uses: crazy-max/ghaction-import-gpg@v3
+        with:
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          git-user-signingkey: true
+          git-commit-gpgsign: true
+          git-tag-gpgsign: true
+          git-committer-name: xunn-bot
+          git-committer-email: bot@xunn.io
+
+      - name: Configure git name and email
+        run: |
+          git config --global user.name xunn-bot
+          git config --global user.email bot@xunn.io
+
+      - name: Use node ${{ env.NODE_CURRENT_VERSION }}
+        uses: actions/setup-node@v2.4.1
+        with:
+          node-version: ${{ env.NODE_CURRENT_VERSION }}
+
+      - name: Get current version string from local package.json
+        uses: actions/github-script@v5
+        id: current-version
+        with:
+          script: |
+            const { version: pkgVersion } = require('./package.json');
+            core.info(`current local version: ${pkgVersion}`);
+            core.setOutput('version', pkgVersion);
+
+      - name: Install semver package
+        run: |
+          CWD=`pwd`
+          cd `mktemp -d`
+          npm install --no-package-lock --no-save semver
+          mv node_modules $CWD
+          cd $CWD
+
+      - name: Get latest release tag from the upstream ${{ env.UPSTREAM_OWNER }}/${{ env.UPSTREAM_REPO }} repository
+        uses: actions/github-script@v5
+        id: release-version
+        with:
+          script: |
+            const semver = require('semver');
+
+            const {
+              data: { tag_name }
+            } = await github.rest.repos.getLatestRelease({
+              owner: '${{ env.UPSTREAM_OWNER }}',
+              repo: '${{ env.UPSTREAM_REPO }}'
+            });
+
+            const pkgLatest = semver.clean(tag_name);
+            const tagLatest = `${{ env.TAG_VERSION_PREFIX }}${pkgLatest}`;
+
+            core.info(`latest upstream version: ${pkgLatest}`);
+            core.info(`latest upstream tag: ${tag_name}`);
+            core.info(`potential new tag: ${tagLatest}`);
+            core.setOutput('version', pkgLatest);
+            core.setOutput('upstream-tag', tag_name);
+            core.setOutput('new-tag', tagLatest);
+
+      - name: Determine if rebase is necessary
+        uses: actions/github-script@v5
+        id: should-rebase
+        with:
+          script: |
+            const shouldRebase = require('semver').gtr(
+              '${{ steps.release-version.outputs.version }}',
+              '${{ steps.current-version.outputs.version }}'
+            ).toString();
+
+            core.info(`should rebase: ${shouldRebase}`);
+            core.setOutput('doRebase', shouldRebase);
+
+      - name: Rebase onto upstream
+        if: steps.should-rebase.outputs.doRebase == 'true'
+        run: |
+          git remote add upstream https://github.com/${{ env.UPSTREAM_OWNER }}/${{ env.UPSTREAM_REPO }}.git
+          git fetch upstream --tags
+          git pull --rebase=merges -S -X theirs upstream ${{ steps.release-version.outputs.upstream-tag }}
+
+      - name: Update current version (${{ steps.current-version.outputs.version }}) to ${{ steps.release-version.outputs.version }}
+        if: steps.should-rebase.outputs.doRebase == 'true'
+        uses: actions/github-script@v5
+        with:
+          script: |
+            const fs = require('fs');
+            const pkg = require('./package.json');
+            pkg.version = '${{ steps.release-version.outputs.version }}';
+            fs.writeFileSync('./package.json', JSON.stringify(pkg, undefined, 2));
+
+      - name: Tag, commit, and force push changes
+        if: steps.should-rebase.outputs.doRebase == 'true'
+        env:
+          EDITOR: 'true'
+        run: |
+          git add package.json
+          git commit --amend -S
+          git push origin master -f
+          git tag -s ${{ steps.release-version.outputs.new-tag }} -m ${{ steps.release-version.outputs.version }}
+          git push origin ${{ steps.release-version.outputs.new-tag }}
+
+      - name: Create new release
+        if: steps.should-rebase.outputs.doRebase == 'true'
+        uses: actions/github-script@v5
+        with:
+          script: |
+            await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: '${{ steps.release-version.outputs.new-tag }}',
+              name: 'v${{ steps.release-version.outputs.version }}',
+              body: 'This release was automatically generated from [upstream](https://github.com/${{ env.UPSTREAM_OWNER }}/${{ env.UPSTREAM_REPO }}/releases/tag/${{ steps.release-version.outputs.upstream-tag }}).'
+            });
+
