@@ -1,7 +1,7 @@
 {
   "name": "semantic-release",
   "description": "Automated semver compliant package publishing",
-  "version": "0.0.0-development",
+  "version": "21.0.5",
   "type": "module",
   "author": "Stephan Bönnemann <stephan@boennemann.me> (http://boennemann.me)",
   "ava": {
@@ -18,7 +18,7 @@
     "semantic-release": "bin/semantic-release.js"
   },
   "bugs": {
-    "url": "https://github.com/semantic-release/semantic-release/issues"
+    "url": "https://github.com/Xunnamius/semantic-release-atam/issues"
   },
   "contributors": [
     "Gregor Martynus (https://twitter.com/gr2m)",
@@ -84,7 +84,7 @@
     "index.js",
     "cli.js"
   ],
-  "homepage": "https://github.com/semantic-release/semantic-release#readme",
+  "homepage": "https://github.com/Xunnamius/semantic-release-atam#readme",
   "keywords": [
     "author",
     "automation",
@@ -121,7 +121,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/semantic-release/semantic-release.git"
+    "url": "git+https://github.com/Xunnamius/semantic-release-atam.git"
   },
   "scripts": {
     "codecov": "codecov -f coverage/coverage-final.json",
